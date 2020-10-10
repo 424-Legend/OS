@@ -220,6 +220,28 @@ thread_block (void)
   schedule ();
 }
 
+///* Transitions a blocked thread T to the ready-to-run state.
+//   This is an error if T is not blocked.  (Use thread_yield() to
+//   make the running thread ready.)
+//
+//   This function does not preempt the running thread.  This can
+//   be important: if the caller had disabled interrupts itself,
+//   it may expect that it can atomically unblock a thread and
+//   update other data. */
+//void
+//thread_unblock (struct thread *t) 
+//{
+//  enum intr_level old_level;
+//
+//  ASSERT (is_thread (t));
+//
+//  old_level = intr_disable ();
+//  ASSERT (t->status == THREAD_BLOCKED);
+//  list_push_back (&ready_list, &t->elem);
+//  t->status = THREAD_READY;
+//  intr_set_level (old_level);
+//}
+
 /* Transitions a blocked thread T to the ready-to-run state.
    This is an error if T is not blocked.  (Use thread_yield() to
    make the running thread ready.)
@@ -229,7 +251,7 @@ thread_block (void)
    it may expect that it can atomically unblock a thread and
    update other data. */
 void
-thread_unblock (struct thread *t) 
+thread_unblock (struct thread *t)
 {
   enum intr_level old_level;
 
@@ -582,3 +604,16 @@ allocate_tid (void)
 /* Offset of `stack' member within `struct thread'.
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof (struct thread, stack);
+/* Check the blocked thread */
+void
+blocked_thread_check (struct thread *t, void *aux UNUSED)
+{
+  if (t->status == THREAD_BLOCKED && t->ticks_blocked > 0)
+  {
+      t->ticks_blocked--;
+      if (t->ticks_blocked == 0)
+      {
+          thread_unblock(t);
+      }
+  }
+}
