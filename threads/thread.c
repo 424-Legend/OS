@@ -71,6 +71,7 @@ static void schedule (void);
 void thread_schedule_tail (struct thread *prev);
 static tid_t allocate_tid (void);
 
+void blocked_thread_check(struct thread *t,void *aux UNUSED);
 /* Initializes the threading system by transforming the code
    that's currently running into a thread.  This can't work in
    general and it is possible in this case only because loader.S
@@ -84,6 +85,17 @@ static tid_t allocate_tid (void);
 
    It is not safe to call thread_current() until this function
    finishes. */
+
+void
+blocked_thread_check(struct thread *t,void *aux UNUSED){
+  if(t->status == THREAD_BLOCKED && t->ticks_blocked > 0){
+    t->ticks_blocked --;
+    if (t->ticks_blocked == 0){
+      thread_unblock(t);
+    }
+  }
+}
+
 void
 thread_init (void) 
 {
@@ -220,28 +232,6 @@ thread_block (void)
   schedule ();
 }
 
-///* Transitions a blocked thread T to the ready-to-run state.
-//   This is an error if T is not blocked.  (Use thread_yield() to
-//   make the running thread ready.)
-//
-//   This function does not preempt the running thread.  This can
-//   be important: if the caller had disabled interrupts itself,
-//   it may expect that it can atomically unblock a thread and
-//   update other data. */
-//void
-//thread_unblock (struct thread *t) 
-//{
-//  enum intr_level old_level;
-//
-//  ASSERT (is_thread (t));
-//
-//  old_level = intr_disable ();
-//  ASSERT (t->status == THREAD_BLOCKED);
-//  list_push_back (&ready_list, &t->elem);
-//  t->status = THREAD_READY;
-//  intr_set_level (old_level);
-//}
-
 /* Transitions a blocked thread T to the ready-to-run state.
    This is an error if T is not blocked.  (Use thread_yield() to
    make the running thread ready.)
@@ -251,7 +241,7 @@ thread_block (void)
    it may expect that it can atomically unblock a thread and
    update other data. */
 void
-thread_unblock (struct thread *t)
+thread_unblock (struct thread *t) 
 {
   enum intr_level old_level;
 
@@ -485,6 +475,7 @@ init_thread (struct thread *t, const char *name, int priority)
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
   t->magic = THREAD_MAGIC;
+  t->ticks_blocked = 0;
 
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
@@ -604,16 +595,3 @@ allocate_tid (void)
 /* Offset of `stack' member within `struct thread'.
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof (struct thread, stack);
-/* Check the blocked thread */
-void
-blocked_thread_check (struct thread *t, void *aux UNUSED)
-{
-  if (t->status == THREAD_BLOCKED && t->ticks_blocked > 0)
-  {
-      t->ticks_blocked--;
-      if (t->ticks_blocked == 0)
-      {
-          thread_unblock(t);
-      }
-  }
-}
