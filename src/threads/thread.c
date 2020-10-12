@@ -71,7 +71,6 @@ static void schedule (void);
 void thread_schedule_tail (struct thread *prev);
 static tid_t allocate_tid (void);
 
-void blocked_thread_check(struct thread *t,void *aux UNUSED);
 /* Initializes the threading system by transforming the code
    that's currently running into a thread.  This can't work in
    general and it is possible in this case only because loader.S
@@ -85,17 +84,6 @@ void blocked_thread_check(struct thread *t,void *aux UNUSED);
 
    It is not safe to call thread_current() until this function
    finishes. */
-
-void
-blocked_thread_check(struct thread *t,void *aux UNUSED){
-  if(t->status == THREAD_BLOCKED && t->ticks_blocked > 0){
-    t->ticks_blocked --;
-    if (t->ticks_blocked == 0){
-      thread_unblock(t);
-    }
-  }
-}
-
 void
 thread_init (void) 
 {
@@ -214,7 +202,9 @@ thread_create (const char *name, int priority,
 
   /* Add to run queue. */
   thread_unblock (t);
-
+  if (thread_current ()->priority < priority){     
+  	thread_yield ();
+  }
   return tid;
 }
 
@@ -347,9 +337,10 @@ thread_foreach (thread_action_func *func, void *aux)
 
 /* Sets the current thread's priority to NEW_PRIORITY. */
 void
-thread_set_priority (int new_priority) 
+thread_set_priority (int new_priority)
 {
   thread_current ()->priority = new_priority;
+  thread_yield ();
 }
 
 /* Returns the current thread's priority. */
@@ -477,7 +468,6 @@ init_thread (struct thread *t, const char *name, int priority)
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
   t->magic = THREAD_MAGIC;
-  t->ticks_blocked = 0;
 
   old_level = intr_disable ();
   list_insert_ordered (&all_list, &t->allelem, (list_less_func *) &thread_cmp_priority, NULL);
