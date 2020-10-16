@@ -339,8 +339,11 @@ thread_foreach (thread_action_func *func, void *aux)
 void
 thread_set_priority (int new_priority)
 {
-  thread_current ()->priority = new_priority;
-  thread_yield ();
+   thread_current ()->original_priority = new_priority;
+   if(list_empty(&thread_current()->locks) || new_priority > thread_current()->priority){
+     thread_current()->priority = new_priority;
+     thread_yield();
+   }
 }
 
 /* Returns the current thread's priority. */
@@ -456,21 +459,24 @@ is_thread (struct thread *t)
 static void
 init_thread (struct thread *t, const char *name, int priority)
 {
-  enum intr_level old_level;
-
-  ASSERT (t != NULL);
-  ASSERT (PRI_MIN <= priority && priority <= PRI_MAX);
-  ASSERT (name != NULL);
-
-  memset (t, 0, sizeof *t);
-  t->status = THREAD_BLOCKED;
-  strlcpy (t->name, name, sizeof t->name);
-  t->stack = (uint8_t *) t + PGSIZE;
-  t->priority = priority;
-  t->magic = THREAD_MAGIC;
-
-  old_level = intr_disable ();
-  list_insert_ordered (&all_list, &t->allelem, (list_less_func *) &thread_cmp_priority, NULL);
+	enum intr_level old_level;
+	
+	ASSERT (t != NULL);
+	ASSERT (PRI_MIN <= priority && priority <= PRI_MAX);
+	ASSERT (name != NULL);
+	
+	memset (t, 0, sizeof *t);
+	t->status = THREAD_BLOCKED;
+	strlcpy (t->name, name, sizeof t->name);
+	t->stack = (uint8_t *) t + PGSIZE;
+	t->priority = priority;
+	t->magic = THREAD_MAGIC;
+	
+	old_level = intr_disable ();
+	list_insert_ordered (&all_list, &t->allelem, (list_less_func *) &thread_cmp_priority, NULL);
+	t->original_priority = priority;
+ 	list_init (&t->locks);
+ 	t->waiting_lock = NULL;
   intr_set_level (old_level);
 }
 

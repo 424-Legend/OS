@@ -99,7 +99,10 @@ struct thread
 #endif
 
     /* Owned by thread.c. */
-    unsigned magic;                     /* Detects stack overflow. */
+    unsigned magic;      
+	struct list locks;                  /* Locks this thread holds */
+    struct lock *waiting_lock;          /* The lock this thread is waiting for */
+    int original_priority;               /* Detects stack overflow. */
   };
 
 /* If false (default), use round-robin scheduler.
@@ -137,5 +140,5 @@ int thread_get_nice (void);
 void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
-
+bool thread_cmp_priority (const struct list_elem *a, const struct list_elem *b, void *aux);
 #endif /* threads/thread.h */

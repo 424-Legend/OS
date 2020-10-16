@@ -17,7 +17,7 @@
 
 static thread_func acquire1_thread_func;
 static thread_func acquire2_thread_func;
-
+//break priority-donate-one.c:test_priority_donate_one 
 void
 test_priority_donate_one (void) 
 {
@@ -28,7 +28,7 @@ test_priority_donate_one (void)
 
   /* Make sure our priority is the default. */
   ASSERT (thread_get_priority () == PRI_DEFAULT);
-
+ 
   lock_init (&lock);
   lock_acquire (&lock);
   thread_create ("acquire1", PRI_DEFAULT + 1, acquire1_thread_func, &lock);
@@ -49,6 +49,8 @@ acquire1_thread_func (void *lock_)
 
   lock_acquire (lock);
   msg ("acquire1: got the lock");
+//  msg ("This thread should have priority %d.  Actual priority: %d.",
+//       PRI_DEFAULT + 1, thread_get_priority ());
   lock_release (lock);
   msg ("acquire1: done");
 }
