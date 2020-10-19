@@ -99,10 +99,10 @@ struct thread
 #endif
 
     /* Owned by thread.c. */
-    unsigned magic;      
+    unsigned magic;      				/* Detects stack overflow. */
 	struct list locks;                  /* Locks this thread holds */
     struct lock *waiting_lock;          /* The lock this thread is waiting for */
-    int original_priority;               /* Detects stack overflow. */
+    int original_priority;
   };
 
 /* If false (default), use round-robin scheduler.

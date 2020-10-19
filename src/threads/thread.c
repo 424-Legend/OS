@@ -477,7 +477,7 @@ init_thread (struct thread *t, const char *name, int priority)
 	t->original_priority = priority;
  	list_init (&t->locks);
  	t->waiting_lock = NULL;
-  intr_set_level (old_level);
+  	intr_set_level (old_level);
 }
 
 /* Allocates a SIZE-byte frame at the top of thread T's stack and
