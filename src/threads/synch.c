@@ -244,8 +244,7 @@ void
 lock_release (struct lock *lock) {
 	ASSERT (lock != NULL);
 	ASSERT (lock_held_by_current_thread (lock));
-	if (!thread_mlfqs)
-	{
+	if (!thread_mlfqs) {
 		enum intr_level old_level = intr_disable ();
 		list_remove(&lock->elem);
 		int maximal = thread_current()->original_priority;
