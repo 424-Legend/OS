@@ -199,15 +199,23 @@ thread_create (const char *name, int priority,
   sf = alloc_frame (t, sizeof *sf);
   sf->eip = switch_entry;
   sf->ebp = 0;
-
+ 	t->ticks_blocked = 0;
   /* Add to run queue. */
   thread_unblock (t);
   if (thread_current ()->priority < priority){     
   	thread_yield ();
   }
+  
   return tid;
 }
-
+void
+blocked_thread_check(struct thread *t,void *aux UNUSED){
+  if(t->status == THREAD_BLOCKED && t->ticks_wake > 0){
+    if (t->ticks_wake <= timer_ticks ()){
+      thread_unblock(t);
+    }
+  }
+}
 /* Puts the current thread to sleep.  It will not be scheduled
    again until awoken by thread_unblock().
 
@@ -324,9 +332,7 @@ void
 thread_foreach (thread_action_func *func, void *aux)
 {
   struct list_elem *e;
-
   ASSERT (intr_get_level () == INTR_OFF);
-
   for (e = list_begin (&all_list); e != list_end (&all_list);
        e = list_next (e))
     {
