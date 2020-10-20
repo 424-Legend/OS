@@ -4,15 +4,15 @@
 #include <debug.h>
 #include <list.h>
 #include <stdint.h>
+#include "threads/fixed-point.h"
 
 /* States in a thread's life cycle. */
-enum thread_status
-  {
+enum thread_status {
     THREAD_RUNNING,     /* Running thread. */
     THREAD_READY,       /* Not running but ready to run. */
     THREAD_BLOCKED,     /* Waiting for an event to trigger. */
     THREAD_DYING        /* About to be destroyed. */
-  };
+};
 
 /* Thread identifier type.
    You can redefine this to whatever type you like. */
@@ -80,31 +80,33 @@ typedef int tid_t;
    only because they are mutually exclusive: only a thread in the
    ready state is on the run queue, whereas only a thread in the
    blocked state is on a semaphore wait list. */
-struct thread
-  {
-    /* Owned by thread.c. */
-    tid_t tid;                          /* Thread identifier. */
-    enum thread_status status;          /* Thread state. */
-    char name[16];                      /* Name (for debugging purposes). */
-    uint8_t *stack;                     /* Saved stack pointer. */
-    int priority;                       /* Priority. */
-    struct list_elem allelem;           /* List element for all threads list. */
+struct thread {
+	/* Owned by thread.c. */
+	tid_t tid;                          /* Thread identifier. */
+	enum thread_status status;          /* Thread state. */
+	char name[16];                      /* Name (for debugging purposes). */
+	uint8_t *stack;                     /* Saved stack pointer. */
+	int priority;                       /* Priority. */
+	struct list_elem allelem;           /* List element for all threads list. */
 
-    /* Shared between thread.c and synch.c. */
-    struct list_elem elem;              /* List element. */
-    int64_t ticks_wake;
+	/* Shared between thread.c and synch.c. */
+	struct list_elem elem;              /* List element. */
+	int64_t ticks_wake;
 
 #ifdef USERPROG
-    /* Owned by userprog/process.c. */
-    uint32_t *pagedir;                  /* Page directory. */
+	/* Owned by userprog/process.c. */
+	uint32_t *pagedir;                  /* Page directory. */
 #endif
 
-    /* Owned by thread.c. */
-    unsigned magic;      				/* Detects stack overflow. */
+	/* Owned by thread.c. */
+	unsigned magic;      				/* Detects stack overflow. */
 	struct list locks;                  /* Locks this thread holds */
-    struct lock *waiting_lock;          /* The lock this thread is waiting for */
-    int original_priority;
-  };
+	struct lock *waiting_lock;          /* The lock this thread is waiting for */
+	int original_priority;
+
+	int nice;                           /* Niceness of thread used in mlfqs */
+	fixed_t recent_cpu;                /* Used in mlfqs */
+};
 
 /* If false (default), use round-robin scheduler.
    If true, use multi-level feedback queue scheduler.
@@ -137,6 +139,10 @@ void thread_foreach (thread_action_func *, void *);
 
 int thread_get_priority (void);
 void thread_set_priority (int);
+
+void thread_mlfqs_increase_recent_cpu_by_one (void);
+void thread_mlfqs_update_load_avg_and_recent_cpu (void);
+void thread_mlfqs_update_priority (struct thread *t);
 
 int thread_get_nice (void);
 void thread_set_nice (int);
