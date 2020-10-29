@@ -65,7 +65,7 @@ sema_down (struct semaphore *sema) {
 
 	old_level = intr_disable ();
 	while (sema->value == 0) {
-		list_insert_ordered (&sema->waiters, &thread_current ()->elem, thread_cmp_priority, NULL);
+		list_push_back(&sema->waiters, &thread_current ()->elem);
 		thread_block ();
 	}
 	sema->value--;
@@ -172,7 +172,7 @@ lock_init (struct lock *lock) {
 	sema_init (&lock->semaphore, 1);
 }
 bool lock_compare_max_priority (const struct list_elem *a,const struct list_elem *b,void *aux UNUSED) {
-	return list_entry(a,struct lock,elem)->max_priority < list_entry(b,struct lock,elem)->max_priority;
+	return list_entry(a,struct lock,elem)->max_priority_of_threads < list_entry(b,struct lock,elem)->max_priority_of_threads;
 }
 /* Acquires LOCK, sleeping until it becomes available if
    necessary.  The lock must not already be held by the current
@@ -190,30 +190,38 @@ lock_acquire (struct lock *lock) {
 	enum intr_level old_level;
 
 	if(lock->holder != NULL && !thread_mlfqs) {
-		thread_current()->waiting_lock = lock;
-		struct lock *wlock = lock;
-		while(wlock != NULL && thread_current()->priority > wlock->max_priority) {
-			wlock->max_priority = thread_current()->priority;
-			struct list_elem *max_priority_in_locks = list_max(&wlock->holder->locks,lock_compare_max_priority,NULL);
-			int maximal = list_entry(max_priority_in_locks,struct lock,elem)->max_priority;
-			if(wlock->holder->priority < maximal)
-				wlock->holder->priority = maximal;
-			wlock = wlock->holder->waiting_lock;
-		}
+		thread_current()->lock_waiting = lock;
+		priority_donate(lock);
 	}
-	sema_down (&lock->semaphore);
+	sema_down (&lock->semaphore);	//信号量--，过程中可能被阻塞 
 	old_level = intr_disable ();
-	if (!thread_mlfqs) {
-		thread_current()->waiting_lock = NULL;
-		lock->max_priority = thread_current()->priority;
-		list_push_back(&thread_current()->locks,&lock->elem);
-		if(lock->max_priority > thread_current()->priority) {
-			thread_current()->priority = lock->max_priority;
-			thread_yield();
-		}
+	if (!thread_mlfqs) {	//not mission 3
+		thread_current()->lock_waiting = NULL;
+		lock->max_priority_of_threads = thread_current()->priority;
+		list_push_back(&thread_current()->locks,&lock->elem);	//push到线程的锁列表中
 	}
 	lock->holder = thread_current ();
 	intr_set_level (old_level);
+}
+
+void
+priority_donate(struct lock *lock)
+{
+	ASSERT (lock != NULL);
+	
+//	enum intr_level old_level = intr_disable ();
+	struct lock *cur_lock = lock;
+	while (cur_lock != NULL && thread_current()->priority > cur_lock->max_priority_of_threads)	//递归捐赠优先级 
+	{
+		cur_lock->max_priority_of_threads = thread_current()->priority;
+		struct list_elem *elem_of_max_priority_of_locks = list_max(&cur_lock->holder->locks,lock_compare_max_priority,NULL);
+		int max_priority_of_locks = list_entry(elem_of_max_priority_of_locks,struct lock,elem)->max_priority_of_threads;
+		if (max_priority_of_locks > cur_lock->holder->priority)
+		{
+			cur_lock->holder->priority = max_priority_of_locks;
+		}
+		cur_lock = cur_lock->holder->lock_waiting;
+	}
 }
 
 /* Tries to acquires LOCK and returns true if successful or false
@@ -244,21 +252,22 @@ void
 lock_release (struct lock *lock) {
 	ASSERT (lock != NULL);
 	ASSERT (lock_held_by_current_thread (lock));
+	int priority_after_release = thread_current()->original_priority;
+	
 	if (!thread_mlfqs) {
 		enum intr_level old_level = intr_disable ();
-		list_remove(&lock->elem);
-		int maximal = thread_current()->original_priority;
+		list_remove(&lock->elem);	//从lock->holder的锁列表里移除这把锁
 		if(!list_empty(&thread_current()->locks)) { //如果还有锁，找出等待这些锁的线程中优先级最高的
-			struct list_elem *max_priority_in_locks = list_max(&thread_current()->locks,lock_compare_max_priority,NULL);
-			int p = list_entry(max_priority_in_locks,struct lock,elem)->max_priority;
-			if(p > maximal)
-				maximal = p;
+			struct list_elem *elem_of_max_priority_of_locks = list_max(&thread_current()->locks,lock_compare_max_priority,NULL);
+			int max_priority_of_locks = list_entry(elem_of_max_priority_of_locks,struct lock,elem)->max_priority_of_threads;
+			if(priority_after_release < max_priority_of_locks)	//检测是否被其他线程捐赠 
+				priority_after_release = max_priority_of_locks;
 		}
-		thread_current()->priority = maximal;
+		thread_current()->priority = priority_after_release; //修改当前线程优先级为拿到锁里max_priority_of_threads最大的 
 		intr_set_level (old_level);
 	}
 	lock->holder = NULL;
-	sema_up (&lock->semaphore);
+	sema_up (&lock->semaphore);	//信号量++
 }
 
 /* Returns true if the current thread holds LOCK, false
@@ -345,9 +354,9 @@ cond_signal (struct condition *cond, struct lock *lock UNUSED) {
 	ASSERT (lock_held_by_current_thread (lock));
 
 	if (!list_empty (&cond->waiters)) {
-		struct list_elem *max_priority = list_max (&cond->waiters,cond_compare_priority,NULL);
-		list_remove (max_priority);
-		sema_up(&list_entry(max_priority,struct semaphore_elem,elem)->semaphore);
+		struct list_elem *elem_of_lock_in_waiters_having_max_priority = list_max (&cond->waiters,cond_compare_priority,NULL);	//保证为优先队列 
+		list_remove (elem_of_lock_in_waiters_having_max_priority);
+		sema_up(&list_entry(elem_of_lock_in_waiters_having_max_priority,struct semaphore_elem,elem)->semaphore);
 	}
 }
 

@@ -335,11 +335,13 @@ thread_set_priority (int new_priority) {
 	if (thread_mlfqs) {
 		return;
 	}
+	enum intr_level old_level = intr_disable ();
 	thread_current ()->original_priority = new_priority;
 	if(list_empty(&thread_current()->locks) || new_priority > thread_current()->priority) {
 		thread_current()->priority = new_priority;
-		thread_yield();
+		thread_yield();	//Ç±ÔÚ¾ºÕù 
 	}
+	intr_set_level (old_level);
 }
 
 /* Returns the current thread's priority. */
@@ -460,7 +462,7 @@ init_thread (struct thread *t, const char *name, int priority) {
 	list_insert_ordered (&all_list, &t->allelem, (list_less_func *) &thread_cmp_priority, NULL);
 	t->original_priority = priority;
 	list_init (&t->locks);
-	t->waiting_lock = NULL;
+	t->lock_waiting = NULL;
 
 	t->nice = 0;
 	t->recent_cpu = FP_CONST (0);
