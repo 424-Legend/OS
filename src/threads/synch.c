@@ -252,7 +252,7 @@ void
 lock_release (struct lock *lock) {
 	ASSERT (lock != NULL);
 	ASSERT (lock_held_by_current_thread (lock));
-	int priority_after_release = thread_current()->original_priority;
+	int priority_after_release = thread_current()->former_priority;
 	
 	if (!thread_mlfqs) {
 		enum intr_level old_level = intr_disable ();

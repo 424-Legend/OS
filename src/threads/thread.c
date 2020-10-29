@@ -336,7 +336,7 @@ thread_set_priority (int new_priority) {
 		return;
 	}
 	enum intr_level old_level = intr_disable ();
-	thread_current ()->original_priority = new_priority;
+	thread_current ()->former_priority = new_priority;
 	if(list_empty(&thread_current()->locks) || new_priority > thread_current()->priority) {
 		thread_current()->priority = new_priority;
 		thread_yield();	//Ç±ÔÚ¾ºÕù 
@@ -460,7 +460,7 @@ init_thread (struct thread *t, const char *name, int priority) {
 
 	old_level = intr_disable ();
 	list_insert_ordered (&all_list, &t->allelem, (list_less_func *) &thread_cmp_priority, NULL);
-	t->original_priority = priority;
+	t->former_priority = priority;
 	list_init (&t->locks);
 	t->lock_waiting = NULL;
 

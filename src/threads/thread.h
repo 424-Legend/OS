@@ -102,7 +102,7 @@ struct thread {
 	unsigned magic;      				/* Detects stack overflow. */
 	struct list locks;                  /* Locks this thread holds */
 	struct lock *lock_waiting;          /* The lock this thread is waiting for */
-	int original_priority;
+	int former_priority;
 
 	int nice;                           /* Niceness of thread used in mlfqs */
 	fixed_t recent_cpu;                /* Used in mlfqs */
