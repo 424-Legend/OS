@@ -150,7 +150,7 @@ sema_test_helper (void *sema_) {
 }
 
 /* Initializes LOCK.  A lock can be held by at most a single
-   thread at any given time.  Our locks are not "recursive", that
+   thread at any given time.  Our lock_list are not "recursive", that
    is, it is an error for the thread currently holding a lock to
    try to acquire that lock.
 
@@ -193,12 +193,12 @@ lock_acquire (struct lock *lock) {
 		thread_current()->lock_waiting = lock;
 		priority_donate(lock);
 	}
-	sema_down (&lock->semaphore);	//ÐÅºÅÁ¿--£¬¹ý³ÌÖÐ¿ÉÄÜ±»×èÈû 
+	sema_down (&lock->semaphore);	//ä¿¡å·é‡--ï¼Œè¿‡ç¨‹ä¸­å¯èƒ½è¢«é˜»å¡ž 
 	old_level = intr_disable ();
 	if (!thread_mlfqs) {	//not mission 3
 		thread_current()->lock_waiting = NULL;
 		lock->max_priority_of_threads = thread_current()->priority;
-		list_push_back(&thread_current()->locks,&lock->elem);	//pushµ½Ïß³ÌµÄËøÁÐ±íÖÐ
+		list_push_back(&thread_current()->lock_list,&lock->elem);	//pushåˆ°çº¿ç¨‹çš„é”åˆ—è¡¨ä¸­
 	}
 	lock->holder = thread_current ();
 	intr_set_level (old_level);
@@ -211,15 +211,12 @@ priority_donate(struct lock *lock)
 	
 //	enum intr_level old_level = intr_disable ();
 	struct lock *cur_lock = lock;
-	while (cur_lock != NULL && thread_current()->priority > cur_lock->max_priority_of_threads)	//µÝ¹é¾èÔùÓÅÏÈ¼¶ 
+	while (cur_lock != NULL && thread_current()->priority > cur_lock->max_priority_of_threads)	//é€’å½’æèµ ä¼˜å…ˆçº§
 	{
 		cur_lock->max_priority_of_threads = thread_current()->priority;
-		struct list_elem *elem_of_max_priority_of_locks = list_max(&cur_lock->holder->locks,lock_compare_max_priority,NULL);
+		struct list_elem *elem_of_max_priority_of_locks = list_max(&cur_lock->holder->lock_list,lock_compare_max_priority,NULL);
 		int max_priority_of_locks = list_entry(elem_of_max_priority_of_locks,struct lock,elem)->max_priority_of_threads;
-		if (max_priority_of_locks > cur_lock->holder->priority)
-		{
-			cur_lock->holder->priority = max_priority_of_locks;
-		}
+		cur_lock->holder->priority = max_priority_of_locks;
 		cur_lock = cur_lock->holder->lock_waiting;
 	}
 }
@@ -256,18 +253,18 @@ lock_release (struct lock *lock) {
 	
 	if (!thread_mlfqs) {
 		enum intr_level old_level = intr_disable ();
-		list_remove(&lock->elem);	//´Ólock->holderµÄËøÁÐ±íÀïÒÆ³ýÕâ°ÑËø
-		if(!list_empty(&thread_current()->locks)) { //Èç¹û»¹ÓÐËø£¬ÕÒ³öµÈ´ýÕâÐ©ËøµÄÏß³ÌÖÐÓÅÏÈ¼¶×î¸ßµÄ
-			struct list_elem *elem_of_max_priority_of_locks = list_max(&thread_current()->locks,lock_compare_max_priority,NULL);
+		list_remove(&lock->elem);	//ä»Žçº¿ç¨‹çš„é”åˆ—è¡¨é‡Œç§»é™¤è¿™æŠŠé”
+		if(!list_empty(&thread_current()->lock_list)) { //åˆ¤æ–­å½“å‰çº¿ç¨‹æ˜¯å¦è¢«å…¶ä»–çº¿ç¨‹æèµ 
+			struct list_elem *elem_of_max_priority_of_locks = list_max(&thread_current()->lock_list,lock_compare_max_priority,NULL);
 			int max_priority_of_locks = list_entry(elem_of_max_priority_of_locks,struct lock,elem)->max_priority_of_threads;
-			if(priority_after_release < max_priority_of_locks)	//¼ì²âÊÇ·ñ±»ÆäËûÏß³Ì¾èÔù 
+			if(priority_after_release < max_priority_of_locks)	//è®¾ç½®å½“å‰çº¿ç¨‹ä¼˜å…ˆçº§ä¸ºè¢«å…¶ä»–çº¿ç¨‹æèµ çš„ä¼˜å…ˆçº§
 				priority_after_release = max_priority_of_locks;
 		}
-		thread_current()->priority = priority_after_release; //ÐÞ¸Äµ±Ç°Ïß³ÌÓÅÏÈ¼¶ÎªÄÃµ½ËøÀïmax_priority_of_threads×î´óµÄ 
+		thread_current()->priority = priority_after_release;
 		intr_set_level (old_level);
 	}
 	lock->holder = NULL;
-	sema_up (&lock->semaphore);	//ÐÅºÅÁ¿++
+	sema_up (&lock->semaphore);	//ä¿¡å·é‡++
 }
 
 /* Returns true if the current thread holds LOCK, false
@@ -310,7 +307,7 @@ cond_init (struct condition *cond) {
    A given condition variable is associated with only a single
    lock, but one lock may be associated with any number of
    condition variables.  That is, there is a one-to-many mapping
-   from locks to condition variables.
+   from lock_list to condition variables.
 
    This function may sleep, so it must not be called within an
    interrupt handler.  This function may be called with
@@ -354,7 +351,7 @@ cond_signal (struct condition *cond, struct lock *lock UNUSED) {
 	ASSERT (lock_held_by_current_thread (lock));
 
 	if (!list_empty (&cond->waiters)) {
-		struct list_elem *elem_of_lock_in_waiters_having_max_priority = list_max (&cond->waiters,cond_compare_priority,NULL);	//±£Ö¤ÎªÓÅÏÈ¶ÓÁÐ 
+		struct list_elem *elem_of_lock_in_waiters_having_max_priority = list_max (&cond->waiters,cond_compare_priority,NULL);	//ç»´æŠ¤ä¼˜å…ˆé˜Ÿåˆ—
 		list_remove (elem_of_lock_in_waiters_having_max_priority);
 		sema_up(&list_entry(elem_of_lock_in_waiters_having_max_priority,struct semaphore_elem,elem)->semaphore);
 	}

@@ -101,9 +101,9 @@ struct thread {
 	/* Owned by thread.c. */
 	unsigned magic;      				/* Detects stack overflow. */
 
-	struct list locks;                  //线程拥有的锁 
-	struct lock *lock_waiting;          //线程等待的锁 
-	int former_priority;			//初始优先级 
+	struct list lock_list;                  //绾跨▼鎷ユ湁鐨勯攣鍒楄〃 
+	struct lock *lock_waiting;          //绾跨▼姝ｅ湪绛夊緟鐨勯攣 
+	int former_priority;			//donate涔嬪墠鐨勪紭鍏堢骇
 
 
 	int nice;                           /* Niceness of thread used in mlfqs */
