@@ -100,9 +100,9 @@ struct thread {
 
 	/* Owned by thread.c. */
 	unsigned magic;      				/* Detects stack overflow. */
-	struct list locks;                  //Ïß³ÌÓµÓÐµÄËø 
-	struct lock *lock_waiting;          //Ïß³ÌµÈ´ýµÄËø 
-	int original_priority;				//³õÊ¼ÓÅÏÈ¼¶ 
+	struct list locks;                  //ï¿½ß³ï¿½Óµï¿½Ðµï¿½ï¿½ï¿½ 
+	struct lock *lock_waiting;          //ï¿½ß³ÌµÈ´ï¿½ï¿½ï¿½ï¿½ï¿½ 
+	int original_priority;				//ï¿½ï¿½Ê¼ï¿½ï¿½ï¿½È¼ï¿½ 
 
 	int nice;                           /* Niceness of thread used in mlfqs */
 	fixed_t recent_cpu;                /* Used in mlfqs */
@@ -124,7 +124,7 @@ tid_t thread_create (const char *name, int priority, thread_func *, void *);
 
 void thread_block (void);
 void thread_unblock (struct thread *);
-void blocked_thread_check (struct thread *t, void *aux UNUSED);
+void wake_check (struct thread *t, void *aux UNUSED);
 
 struct thread *thread_current (void);
 tid_t thread_tid (void);

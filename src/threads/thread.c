@@ -205,8 +205,9 @@ thread_create (const char *name, int priority,
 
 	return tid;
 }
+
 void
-blocked_thread_check(struct thread *t,void *aux UNUSED) {
+wake_check(struct thread *t,void *aux UNUSED) {
 	if(t->status == THREAD_BLOCKED && t->ticks_wake > 0) {
 		if (t->ticks_wake <= timer_ticks ()) {
 			thread_unblock(t);
@@ -339,7 +340,7 @@ thread_set_priority (int new_priority) {
 	thread_current ()->original_priority = new_priority;
 	if(list_empty(&thread_current()->locks) || new_priority > thread_current()->priority) {
 		thread_current()->priority = new_priority;
-		thread_yield();	//Ç±ÔÚ¾ºÕù 
+		thread_yield();	//Ç±ï¿½Ú¾ï¿½ï¿½ï¿½ 
 	}
 	intr_set_level (old_level);
 }
