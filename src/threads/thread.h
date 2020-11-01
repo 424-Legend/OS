@@ -104,8 +104,8 @@ struct thread {
 	struct lock *lock_waiting;          //�̵߳ȴ����� 
 	int original_priority;				//��ʼ���ȼ� 
 
-	int nice;                           /* Niceness of thread used in mlfqs */
-	fixed_t recent_cpu;                /* Used in mlfqs */
+	int nice;                           /* mlfqs 中线程的nice值 */
+	fixed_t recent_cpu;                /* mlfqs 中度量线程“最近”收到的CPU时间 */
 };
 
 /* If false (default), use round-robin scheduler.
@@ -140,9 +140,14 @@ void thread_foreach (thread_action_func *, void *);
 int thread_get_priority (void);
 void thread_set_priority (int);
 
-void thread_mlfqs_increase_recent_cpu_by_one (void);
-void thread_mlfqs_update_load_avg_and_recent_cpu (void);
-void thread_mlfqs_update_priority (struct thread *t);
+void increase_recent_cpu (void);
+void update_load_avg (void);
+void update_recent_cpu (void);
+void update_priority (struct thread *t);
+
+fixed_t recalculate_thread_mlfqs_recent_cpu(struct thread *t);
+fixed_t recalculate_thread_mlfqs_load_avg(size_t ready_threads);
+int recalculate_thread_mlfqs_priority(struct thread *t);
 
 int thread_get_nice (void);
 void thread_set_nice (int);

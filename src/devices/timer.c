@@ -160,13 +160,15 @@ timer_interrupt (struct intr_frame *args UNUSED) {
 	ticks++;
 	thread_tick ();
 	thread_foreach (wake_check, NULL);
-
+	/* 以下为mission 3新添代码 */
 	if (thread_mlfqs) {
-		thread_mlfqs_increase_recent_cpu_by_one ();
-		if (ticks % TIMER_FREQ == 0)
-			thread_mlfqs_update_load_avg_and_recent_cpu ();
+		increase_recent_cpu ();
+		if (ticks % TIMER_FREQ == 0){
+			update_load_avg ();
+			update_recent_cpu ();
+		}
 		else if (ticks % 4 == 0)
-			thread_mlfqs_update_priority (thread_current ());
+			update_priority (thread_current ());
 	}
 }
 
