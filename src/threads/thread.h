@@ -101,13 +101,14 @@ struct thread {
 	/* Owned by thread.c. */
 	unsigned magic;      				/* Detects stack overflow. */
 
+
 	struct list lock_list;                  //线程拥有的锁列表 
 	struct lock *lock_waiting;          //线程正在等待的锁 
 	int former_priority;			//donate之前的优先级
 
 
-	int nice;                           /* Niceness of thread used in mlfqs */
-	fixed_t recent_cpu;                /* Used in mlfqs */
+	int nice;                           /* mlfqs 中线程的nice�?*/
+	fixed_t recent_cpu;                /* mlfqs 中度量线程“最近”收到的CPU时间 */
 };
 
 /* If false (default), use round-robin scheduler.
@@ -126,7 +127,7 @@ tid_t thread_create (const char *name, int priority, thread_func *, void *);
 
 void thread_block (void);
 void thread_unblock (struct thread *);
-void blocked_thread_check (struct thread *t, void *aux UNUSED);
+void wake_check (struct thread *t, void *aux UNUSED);
 
 struct thread *thread_current (void);
 tid_t thread_tid (void);
@@ -142,9 +143,14 @@ void thread_foreach (thread_action_func *, void *);
 int thread_get_priority (void);
 void thread_set_priority (int);
 
-void thread_mlfqs_increase_recent_cpu_by_one (void);
-void thread_mlfqs_update_load_avg_and_recent_cpu (void);
-void thread_mlfqs_update_priority (struct thread *t);
+void increase_recent_cpu (void);
+void update_load_avg (void);
+void update_recent_cpu (void);
+void update_priority (struct thread *t);
+
+fixed_t recalculate_thread_mlfqs_recent_cpu(struct thread *t);
+fixed_t recalculate_thread_mlfqs_load_avg(size_t ready_threads);
+int recalculate_thread_mlfqs_priority(struct thread *t);
 
 int thread_get_nice (void);
 void thread_set_nice (int);
