@@ -340,7 +340,8 @@ thread_set_priority (int new_priority) {
 	thread_current ()->former_priority = new_priority;
 	if(list_empty(&thread_current()->lock_list) || new_priority > thread_current()->priority) {
 		thread_current()->priority = new_priority;
-		thread_yield();	//交出cpu，重新schedule () 
+		thread_yield();	//交出cpu，重新schedule ()
+	}
 	intr_set_level (old_level);
 }
 
