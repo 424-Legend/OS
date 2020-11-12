@@ -1,5 +1,5 @@
 #include "userprog/tss.h"
-#include <debug.h>
+#include <debug.h> 
 #include <stddef.h>
 #include "userprog/gdt.h"
 #include "threads/thread.h"
