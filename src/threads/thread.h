@@ -4,15 +4,15 @@
 #include <debug.h>
 #include <list.h>
 #include <stdint.h>
-#include "threads/fixed-point.h"
 
 /* States in a thread's life cycle. */
-enum thread_status {
+enum thread_status
+  {
     THREAD_RUNNING,     /* Running thread. */
     THREAD_READY,       /* Not running but ready to run. */
     THREAD_BLOCKED,     /* Waiting for an event to trigger. */
     THREAD_DYING        /* About to be destroyed. */
-};
+  };
 
 /* Thread identifier type.
    You can redefine this to whatever type you like. */
@@ -80,36 +80,27 @@ typedef int tid_t;
    only because they are mutually exclusive: only a thread in the
    ready state is on the run queue, whereas only a thread in the
    blocked state is on a semaphore wait list. */
-struct thread {
-	/* Owned by thread.c. */
-	tid_t tid;                          /* Thread identifier. */
-	enum thread_status status;          /* Thread state. */
-	char name[16];                      /* Name (for debugging purposes). */
-	uint8_t *stack;                     /* Saved stack pointer. */
-	int priority;                       /* Priority. */
-	struct list_elem allelem;           /* List element for all threads list. */
+struct thread
+  {
+    /* Owned by thread.c. */
+    tid_t tid;                          /* Thread identifier. */
+    enum thread_status status;          /* Thread state. */
+    char name[16];                      /* Name (for debugging purposes). */
+    uint8_t *stack;                     /* Saved stack pointer. */
+    int priority;                       /* Priority. */
+    struct list_elem allelem;           /* List element for all threads list. */
 
-	/* Shared between thread.c and synch.c. */
-	struct list_elem elem;              /* List element. */
-	int64_t ticks_wake;
+    /* Shared between thread.c and synch.c. */
+    struct list_elem elem;              /* List element. */
 
 #ifdef USERPROG
-	/* Owned by userprog/process.c. */
-	uint32_t *pagedir;                  /* Page directory. */
+    /* Owned by userprog/process.c. */
+    uint32_t *pagedir;                  /* Page directory. */
 #endif
 
-	/* Owned by thread.c. */
-	unsigned magic;      				/* Detects stack overflow. */
-
-
-	struct list lock_list;                  //线程拥有的锁列表 
-	struct lock *lock_waiting;          //线程正在等待的锁 
-	int former_priority;			//donate之前的优先级
-
-
-	int nice;                           /* mlfqs 中线程的nice�?*/
-	fixed_t recent_cpu;                /* mlfqs 中度量线程“最近”收到的CPU时间 */
-};
+    /* Owned by thread.c. */
+    unsigned magic;                     /* Detects stack overflow. */
+  };
 
 /* If false (default), use round-robin scheduler.
    If true, use multi-level feedback queue scheduler.
@@ -127,7 +118,6 @@ tid_t thread_create (const char *name, int priority, thread_func *, void *);
 
 void thread_block (void);
 void thread_unblock (struct thread *);
-void wake_check (struct thread *t, void *aux UNUSED);
 
 struct thread *thread_current (void);
 tid_t thread_tid (void);
@@ -143,18 +133,9 @@ void thread_foreach (thread_action_func *, void *);
 int thread_get_priority (void);
 void thread_set_priority (int);
 
-void increase_recent_cpu (void);
-void update_load_avg (void);
-void update_recent_cpu (void);
-void update_priority (struct thread *t);
-
-fixed_t recalculate_thread_mlfqs_recent_cpu(struct thread *t);
-fixed_t recalculate_thread_mlfqs_load_avg(size_t ready_threads);
-int recalculate_thread_mlfqs_priority(struct thread *t);
-
 int thread_get_nice (void);
 void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
-bool thread_cmp_priority (const struct list_elem *a, const struct list_elem *b, void *aux);
+
 #endif /* threads/thread.h */
