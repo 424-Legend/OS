@@ -445,29 +445,29 @@ is_thread (struct thread *t) {
 /* Does basic initialization of T as a blocked thread named
    NAME. */
 static void
-init_thread (struct thread *t, const char *name, int priority)
-{
-  enum intr_level old_level;
+init_thread (struct thread *t, const char *name, int priority) {
+	enum intr_level old_level;
 
-  ASSERT (t != NULL);
-  ASSERT (PRI_MIN <= priority && priority <= PRI_MAX);
-  ASSERT (name != NULL);
+	ASSERT (t != NULL);
+	ASSERT (PRI_MIN <= priority && priority <= PRI_MAX);
+	ASSERT (name != NULL);
 
-  memset (t, 0, sizeof *t);
-  t->status = THREAD_BLOCKED;
-  strlcpy (t->name, name, sizeof t->name);
-  t->stack = (uint8_t *) t + PGSIZE;
-  t->priority = priority;
-  t->magic = THREAD_MAGIC;
-  
-#ifdef USERPROG
-  t->return_value = 0;
-#endif
-  
+	memset (t, 0, sizeof *t);
+	t->status = THREAD_BLOCKED;
+	strlcpy (t->name, name, sizeof t->name);
+	t->stack = (uint8_t *) t + PGSIZE;
+	t->priority = priority;
+	t->magic = THREAD_MAGIC;
 
-  old_level = intr_disable ();
-  list_push_back (&all_list, &t->allelem);
-  intr_set_level (old_level);
+	old_level = intr_disable ();
+	list_insert_ordered (&all_list, &t->allelem, (list_less_func *) &thread_cmp_priority, NULL);
+	t->former_priority = priority;
+	list_init (&t->lock_list);
+	t->lock_waiting = NULL;
+
+	t->nice = 0;
+	t->recent_cpu = CONVERT_N_TO_FIXED_POINT (0);
+	intr_set_level (old_level);
 }
 
 /* Allocates a SIZE-byte frame at the top of thread T's stack and

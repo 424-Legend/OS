@@ -94,9 +94,8 @@ struct thread {
 	int64_t ticks_wake;
 
 #ifdef USERPROG
-    /* Owned by userprog/process.c. */
-    uint32_t *pagedir;                  /* Page directory. */
-    int return_value;
+	/* Owned by userprog/process.c. */
+	uint32_t *pagedir;                  /* Page directory. */
 #endif
 
 	/* Owned by thread.c. */
@@ -108,7 +107,7 @@ struct thread {
 	int former_priority;			//donate之前的优先级
 
 
-	int nice;                           /* mlfqs 中线程的nice�?*/
+	int nice;                           /* mlfqs 中线程的nice�?*/
 	fixed_t recent_cpu;                /* mlfqs 中度量线程“最近”收到的CPU时间 */
 };
 
