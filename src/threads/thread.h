@@ -100,15 +100,6 @@ struct thread {
 
 	/* Owned by thread.c. */
 	unsigned magic;      				/* Detects stack overflow. */
-
-
-	struct list lock_list;                  //线程拥有的锁列表 
-	struct lock *lock_waiting;          //线程正在等待的锁 
-	int former_priority;			//donate之前的优先级
-
-
-	int nice;                           /* mlfqs 中线程的nice�?*/
-	fixed_t recent_cpu;                /* mlfqs 中度量线程“最近”收到的CPU时间 */
 };
 
 /* If false (default), use round-robin scheduler.
