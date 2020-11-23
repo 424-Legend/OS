@@ -4,7 +4,7 @@
 #include "kernel/list.h"
 
 struct process_file {
-	struct file* ptr;
+	struct file* ptr; 
 	int fd;
 	struct list_elem elem;
 };

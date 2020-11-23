@@ -418,3 +418,4 @@ syscall_close(int fd)
 	clean_single_file(&thread_current()->opened_files, fd);
 	lock_release(&filesys_lock);
 }
+
