@@ -98,10 +98,10 @@ struct thread
     struct list_elem elem;              /* List element. */
     int64_t ticks_blocked;
 
-    bool load_success;  //if the child process is loaded successfully
-    struct semaphore load_sema;   // semaphore to keep the thread waiting until it makes sure whether the child process if successfully loaded.
-    int exit_status;    
-    struct list children_list;
+    bool load_success;  // 子程序是否成功加载了
+    struct semaphore load_sema;   // 等待子程序加载完毕
+    int exit_status;    // 退出码
+    struct list children_list;   // 维护一个子程序列表
     struct thread* parent;   
     struct file *self;  // its executable file
     struct list opened_files;     //all the opened files
