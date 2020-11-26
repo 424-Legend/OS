@@ -1,9 +1,0 @@
-
-pagedir.c
-pagedir.h
-process.h
-syscall.c
-syscall.h
-thread.h
-thread.c
-process.c
