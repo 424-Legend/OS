@@ -121,17 +121,20 @@ main (int argc, char *argv[])
 
   int howmany = is_at_root ? EXPECTED_REPETITIONS : 1;
   int i, expected_depth = -1;
-
+//0
   for (i = 0; i < howmany; i++)
     {
-      pid_t child_pid;
 
+      
+      pid_t child_pid;
+//1
       /* Spawn a child that will be abnormally terminated.
          To speed the test up, do this only for processes
          spawned at a certain depth. */
       if (n > EXPECTED_DEPTH_TO_PASS/2)
         {
           child_pid = spawn_child (n + 1, CRASH);
+          //2
           if (child_pid != -1)
             {
               if (wait (child_pid) != -1)
@@ -140,7 +143,7 @@ main (int argc, char *argv[])
           /* If spawning this child failed, so should
              the next spawn_child below. */
         }
-
+//3
       /* Now spawn the child that will recurse. */
       child_pid = spawn_child (n + 1, RECURSE);
 

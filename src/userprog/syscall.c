@@ -183,6 +183,7 @@ exit_process(int status)
 		cp = list_entry(e, struct child_process, child_elem);
 		if (cp->tid == cur_thread->tid)
 		{
+			
 			cp->if_waited = true;
 			cp->exit_status = status;
 		}
@@ -252,8 +253,10 @@ int
 syscall_exec(char *file_name)
 {
 	
-	if (!is_valid_addr(file_name))
+	if (!is_valid_addr(file_name)){
 		return -1;
+	}
+		
 
 	return exec_process(file_name);
 }

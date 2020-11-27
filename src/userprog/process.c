@@ -33,7 +33,7 @@ extern struct list all_list;
    before process_execute() returns.  Returns the new process's
    thread id, or TID_ERROR if the thread cannot be created. */
 tid_t
-process_execute (const char *file_name)
+process_execute (const char *file_name) //文件名加参数
 {
   char *fn_copy;  // a copy of file_name
   char *thread_name;  
@@ -69,7 +69,7 @@ process_execute (const char *file_name)
 /* A thread function that loads a user process and starts it
    running. */
 static void
-start_process (void *file_name_)
+start_process (void *file_name_) //文件名加参数
 {
   char *file_name = file_name_;
   struct intr_frame if_;
@@ -150,7 +150,7 @@ process_exit (void)
 {
   struct thread *current_thread = thread_current();
   uint32_t *pd;
-
+  
   int exit_status = current_thread->exit_status;
   if (exit_status == INIT_EXIT_STAT)
     exit_process(-1);
@@ -517,7 +517,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 /* Create a minimal stack by mapping a zeroed page at the top of
    user virtual memory. */
 static bool
-setup_stack (void **esp, char * file_name)
+setup_stack (void **esp, char * file_name) //栈顶，文件名加参数
 {
   uint8_t *kpage;
   bool success = false;
@@ -558,15 +558,19 @@ setup_stack (void **esp, char * file_name)
 
   int i;
   token = strtok_r (file_name, " ", &temp_ptr);
-  for (i=0; ; i++){
-    if(token){
-      *esp -= strlen(token) + 1;
-      memcpy(*esp,token,strlen(token) + 1);
+for (i=0;i<argc; i++){
+ if (token)
+{
+*esp -= strlen(token) + 1;
+      memcpy(*esp,token,strlen(token));
       argv[i]=*esp;
+//printf("i::%d,%s,%x\n",i,argv[i],temp_ptr);
       token = strtok_r (NULL, " ", &temp_ptr);
-    }else{
-      break;
-    }
+}
+else{
+argc--;
+}
+
   }
 
   // word align
