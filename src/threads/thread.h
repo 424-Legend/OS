@@ -103,8 +103,8 @@ struct thread
     struct list list_of_children_processes;  // 维护一个子程序列表
     int exit_status;    // 退出码
     struct thread* parent;   
-    struct file *self;  // its executable file
-    struct list opened_files;     //all the opened files
+    struct file *self;  // 自身的可执行文件
+    struct list opened_files;     // 所有已经打开的文件
     int fd_count;
     //struct semaphore child_lock;
     struct child_process * waiting_child;  //pid of the child process it is currently waiting

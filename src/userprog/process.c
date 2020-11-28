@@ -20,7 +20,7 @@
 #include "threads/vaddr.h"
 
 
-# define WORD_SIZE 4
+# define WORD_SIZE 4  // 压栈时保持对齐
 
 
 static thread_func start_process NO_RETURN;
@@ -599,7 +599,7 @@ setup_stack (void **esp, char * file_name) //栈顶指针，文件名加参数�
   //return address
   *esp-=sizeof(int);
   memcpy(*esp,&argv[argc],sizeof(int));
-
+//printf("%x\n",*esp);
   free(filename_cp);
   free(argv);
 
