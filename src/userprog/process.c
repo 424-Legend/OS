@@ -117,7 +117,7 @@ start_process (void *file_name_)    // file_name_ 为文件名加参数（未分
    This function will be implemented in problem 2-2.  For now, it
    does nothing. */
 int
-process_wait (tid_t child_tid)
+process_wait (tid_t child_tid UNUSED)
 {
   struct thread *current_thread = thread_current ();
 
@@ -158,14 +158,15 @@ process_exit (void)
 
   printf("%s: exit(%d)\n",current_thread->name,exit_status);  // 打印退出码即Process Termination Messages
 
-  if (lock_held_by_current_thread(&filesys_lock))
+  if (!lock_held_by_current_thread(&filesys_lock))
   {
     //printf("release_filesys_lock\n"); // debug
-    lock_release(&filesys_lock);
+    // lock_release(&filesys_lock);
+    lock_acquire(&filesys_lock);
   }
 
   // enum intr_level old_level = intr_disable();
-  lock_acquire(&filesys_lock);
+  
   clean_all_files(&current_thread->opened_files);
   file_close(current_thread->self);
   struct list_elem *elem;
@@ -289,7 +290,7 @@ static bool load_segment (struct file *file, off_t ofs, uint8_t *upage,
 bool
 load (const char *file_name, void (**eip) (void), void **esp)
 {
-  struct thread *current_thread = thread_current();
+  struct thread *current_thread = thread_current ();
   struct Elf32_Ehdr ehdr;
   struct file *file = NULL;
   off_t file_ofs;
@@ -298,10 +299,10 @@ load (const char *file_name, void (**eip) (void), void **esp)
 
   lock_acquire(&filesys_lock);
   /* Allocate and activate page directory. */
-  current_thread->pagedir = pagedir_create();
+  current_thread->pagedir = pagedir_create ();
   if (current_thread->pagedir == NULL)
     goto done;
-  process_activate();
+  process_activate ();
 
   /* Open executable file. */
 
@@ -322,7 +323,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
   }
 
   /* Read and verify executable header. */
-  if (file_read(file, &ehdr, sizeof ehdr) != sizeof ehdr || memcmp(ehdr.e_ident, "\177ELF\1\1\1", 7) || ehdr.e_type != 2 || ehdr.e_machine != 3 || ehdr.e_version != 1 || ehdr.e_phentsize != sizeof(struct Elf32_Phdr) || ehdr.e_phnum > 1024)
+  if (file_read (file, &ehdr, sizeof ehdr) != sizeof ehdr|| memcmp (ehdr.e_ident, "\177ELF\1\1\1", 7) || ehdr.e_type != 2 || ehdr.e_machine != 3 || ehdr.e_version != 1 || ehdr.e_phentsize != sizeof(struct Elf32_Phdr) || ehdr.e_phnum > 1024)
   {
     printf ("load: %s: error loading executable\n", file_name);
     goto done;
@@ -393,6 +394,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
 
   /* Start address. */
   *eip = (void (*) (void)) ehdr.e_entry;
+
   success = true;
 
   file_deny_write(file);
