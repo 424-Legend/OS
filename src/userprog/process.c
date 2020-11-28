@@ -132,14 +132,14 @@ process_wait (tid_t child_tid UNUSED)
   current_thread->waiting_child = child;
 
   if(!child->if_waited){
-    sema_down(&child->wait_sema); // 阻塞等待子进程退出
+    sema_down(&child->wait_sema); // 阻塞等待子线程退出
 
      //child->if_waited=true;
    }
   // else    //if the child process has been waited
   //   return -1;
 
-  list_remove(elem);  // 从父进程的子进程列表中删除该进程
+  list_remove(elem);  // 从父线程的子线程列表中删除该线程
 
   return child->exit_status;
 }

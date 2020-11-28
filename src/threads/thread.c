@@ -191,19 +191,17 @@ thread_create (const char *name, int priority,
   /* Initialize thread. */
   init_thread (t, name, priority);
   tid = t->tid = allocate_tid ();
-  #ifdef USERPROG
+  
+#ifdef USERPROG
   struct child_process* child = malloc(sizeof(*child));
   child->tid = tid;
   child->exit_status = t->exit_status;
   child->if_waited = false;
   sema_init (&(child->wait_sema), 0);
   list_push_back (&running_thread()->list_of_children_processes, &child->child_elem);
-  #endif
+#endif
   
 
-  /* Prepare thread for first run by initializing its stack.
-     Do this atomically so intermediate values for the 'stack'
-     member cannot be observed. */
   old_level = intr_disable ();
 
   /* Stack frame for kernel_thread(). */

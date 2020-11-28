@@ -107,7 +107,7 @@ struct thread
     struct list opened_files;     // 所有已经打开的文件
     int fd_count;
     //struct semaphore child_lock;
-    struct child_process * waiting_child;  //pid of the child process it is currently waiting
+    struct child_process * waiting_child;  // 它正在等待的子进程的pid
 
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
@@ -117,17 +117,16 @@ struct thread
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
   };
+
 struct child_process {
       int tid;
-      struct list_elem child_elem;   // element of itself point to its parent's child_list
-      int exit_status;   //store its exit status to pass it to its parent 
+      struct list_elem child_elem;   // 用于list
+      int exit_status;   // 保存它的退出码，以便传递给父进程
           
-      /*whether the child process has been waited()
-      according to the document: a process may wait for any given child at most once.
-      if_waited would be initialized to false*/
-      bool if_waited;
-      struct semaphore wait_sema;
-    };
+      
+      bool if_waited;   // 这个进程是不是已经被等待了
+      struct semaphore wait_sema;   // 用来等待同步的信号量
+   };
 /* If false (default), use round-robin scheduler.
    If true, use multi-level feedback queue scheduler.
    Controlled by kernel command-line option "-o mlfqs". */
