@@ -602,7 +602,10 @@ setup_stack (void **esp, char * file_name) //栈顶指针，文件名加参数�
 //printf("%x\n",*esp);
   free(filename_cp);
   free(argv);
-
+  if (*esp > 0xc0000000)
+    {
+      return false;
+    }
   return success;
 }
 
