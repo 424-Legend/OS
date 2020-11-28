@@ -58,7 +58,7 @@ process_execute (const char *file_name) //文件名加参数
     palloc_free_page (fn_copy);
   else
   { 
-    sema_down(&current_thread->sema_of_load);   // 等待子进程加载完毕
+    sema_down(&current_thread->sema_of_load);   // 等待新线程加载完毕
     if (!current_thread->child_process_load_successfully)  // 如果加载失败，返回-1
       return -1;   
 
