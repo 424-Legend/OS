@@ -92,7 +92,7 @@ start_process (void *file_name_)    // file_name_ 为文件名加参数（未分
     //ASSERT(current_thread->parent->exit_status==INIT_EXIT_STAT)
     /* exit_status now should be INIT_EXIT_STAT handle later,
     becasuse process start fail, and  exit_status init value is INIT_EXIT_STAT. */
-    //current_thread->exit_status=INIT_EXIT_STAT;
+    current_thread->exit_status=INIT_EXIT_STAT;
     thread_exit();  // 加载失败，退出
   }
   sema_up(&current_thread->parent->sema_of_load);   // 唤醒父进程
