@@ -196,7 +196,7 @@ thread_create (const char *name, int priority,
   c->exit_status = t->exit_status;
   c->if_waited = false;
   sema_init (&(c->wait_sema), 0);
-  list_push_back (&running_thread()->children_list, &c->child_elem);
+  list_push_back (&running_thread()->list_of_children_processes, &c->child_elem);
 
   /* Prepare thread for first run by initializing its stack.
      Do this atomically so intermediate values for the 'stack'
@@ -492,12 +492,12 @@ init_thread (struct thread *t, const char *name, int priority)
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
   t->magic = THREAD_MAGIC;
-  list_init (&t->children_list);
+  list_init (&t->list_of_children_processes);
   t->parent = running_thread();
   list_init (&t->opened_files);
   t->fd_count=2;
   t->exit_status = INIT_EXIT_STAT;
-  sema_init(&t->load_sema,0);
+  sema_init(&t->sema_of_load,0);
   t->waiting_child=NULL;
   t->self=NULL;
   list_push_back (&all_list, &t->allelem);
@@ -621,7 +621,7 @@ find_child_proc(tid_t child_tid)
 
   struct list_elem *tmp_e;
 
-  for (tmp_e = list_begin (&thread_current()->children_list); tmp_e != list_end (&thread_current()->children_list);
+  for (tmp_e = list_begin (&thread_current()->list_of_children_processes); tmp_e != list_end (&thread_current()->list_of_children_processes);
           tmp_e = list_next (tmp_e))
       {
         struct child_process *f = list_entry (tmp_e, struct child_process, child_elem);

@@ -178,7 +178,7 @@ exit_process(int status)
 	struct thread *cur_thread = thread_current();
 
 	enum intr_level old_level = intr_disable();
-	for (struct list_elem *e = list_begin(&cur_thread->parent->children_list); e != list_end(&cur_thread->parent->children_list); e = list_next(e))
+	for (struct list_elem *e = list_begin(&cur_thread->parent->list_of_children_processes); e != list_end(&cur_thread->parent->list_of_children_processes); e = list_next(e))
 	{
 		cp = list_entry(e, struct child_process, child_elem);
 		if (cp->tid == cur_thread->tid)
