@@ -93,6 +93,7 @@ start_process (void *file_name_)    // file_name_ 为文件名加参数（未分
     /* exit_status now should be INIT_EXIT_STAT handle later,
     becasuse process start fail, and  exit_status init value is INIT_EXIT_STAT. */
     current_thread->exit_status=INIT_EXIT_STAT;
+    sema_up(&current_thread->parent->sema_of_load);
     thread_exit();  // 加载失败，退出
   }
   sema_up(&current_thread->parent->sema_of_load);   // 唤醒父进程
@@ -602,10 +603,7 @@ setup_stack (void **esp, char * file_name) //栈顶指针，文件名加参数�
 //printf("%x\n",*esp);
   free(filename_cp);
   free(argv);
-  if (*esp > 0xc0000000)
-    {
-      return false;
-    }
+
   return success;
 }
 
