@@ -112,6 +112,10 @@ struct thread
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
+    struct hash *pages;                 /* Page table. */
+    struct file *bin_file;              /* The binary executable. */
+        void *user_esp;                     /* User's stack pointer. */
+
 #endif
 
     /* Owned by thread.c. */
