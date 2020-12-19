@@ -152,12 +152,7 @@ page_fault (struct intr_frame *f)
   not_present = (f->error_code & PF_P) == 0;
   write = (f->error_code & PF_W) != 0;
   user = (f->error_code & PF_U) != 0;
-  if (user && not_present)
-  {
-     if (!page_in(fault_addr))
-        thread_exit();
-     return;
-  }
+
   if (lock_held_by_current_thread(&filesys_lock))
     lock_release(&filesys_lock);
 
