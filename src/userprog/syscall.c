@@ -153,8 +153,8 @@ syscall_handler (struct intr_frame *f UNUSED)
 		case SYS_MMAP : {
 			int fd;
 			int pos;
-			pop_stack(f->esp, &fd, 1);
-			pop_stack(f->esp, &pos, 2);
+			pop_stack(f->esp, &fd, 4);
+			pop_stack(f->esp, &pos, 5);
 			f->eax = syscall_mmap(fd,pos);
 			break; 
 		}
@@ -294,18 +294,61 @@ syscall_wait(tid_t child_tid)
 	return process_wait(child_tid);
 }
 
-int
-syscall_creat(char *name,off_t initial_size)
+static char *
+copy_in_string (const char *us)
 {
-	int ret;
-	lock_acquire(&filesys_lock);
-	ret = filesys_create(name, initial_size);
-	lock_release(&filesys_lock);
-	return ret;
+  char *ks;
+  char *upage;
+  size_t length;
+
+  ks = palloc_get_page (0);
+  if (ks == NULL)
+    thread_exit ();
+
+  length = 0;
+  for (;;)
+    {
+      upage = pg_round_down (us);
+      if (!page_lock (upage, false))
+        goto lock_error;
+
+      for (; us < upage + PGSIZE; us++)
+        {
+          ks[length++] = *us;
+          if (*us == '\0')
+            {
+              page_unlock (upage);
+              return ks;
+            }
+          else if (length >= PGSIZE)
+            goto too_long_error;
+        }
+
+      page_unlock (upage);
+    }
+
+ too_long_error:
+  page_unlock (upage);
+ lock_error:
+  palloc_free_page (ks);
+  thread_exit ();
 }
 
 int
-syscall_remove(struct intr_frame *f)
+syscall_creat(char *name,off_t initial_size)
+{
+	char *kfile = copy_in_string (name);
+  bool ok;
+  lock_acquire (&filesys_lock);
+  ok = filesys_create (kfile, initial_size);
+  lock_release (&filesys_lock);
+	// printf("%x\n",ok);
+  palloc_free_page (kfile);
+  return ok;
+}
+ 
+int
+syscall_remove(struct intr_frame *f) 
 {
 	int ret;
 	char *name;
@@ -345,8 +388,8 @@ syscall_open(char *name)
 	}
 	return ret;
 }
-
-int
+ 
+int 
 syscall_filesize(int fd)
 {
 	int ret;
@@ -357,68 +400,150 @@ syscall_filesize(int fd)
 
 	return ret;
 }
-
-int
-syscall_read(int size,void *buffer,int fd)
+static struct process_file *
+lookup_fd (int handle)
 {
-	int ret;
+  struct thread *cur = thread_current ();
+  struct list_elem *e;
 
-	if (!is_valid_addr(buffer))
-		ret = -1;
+  for (e = list_begin (&cur->opened_files); e != list_end (&cur->opened_files);
+       e = list_next (e))
+    {
+      struct process_file *pf;
+      pf = list_entry (e, struct process_file, elem);
+      if (pf->fd == handle)
+        return pf;
+    }
 
-	if (fd == 0)
-	{
-		int i;
-		uint8_t *buffer = buffer;
-		for (i = 0; i < size; i++)
-			buffer[i] = input_getc();
-		ret = size;
-	}
-	else
-	{
-		struct process_file *pf = search_fd(&thread_current()->opened_files, fd);
-		if (pf == NULL)
-			ret = -1;
-		else
-		{
-			lock_acquire(&filesys_lock);
-			ret = file_read(pf->ptr, buffer, size);
-			lock_release(&filesys_lock);
-		}
-	}
+  thread_exit ();
+}
+int
+syscall_read(int size,void *udst_,int handle)
+{
+uint8_t *udst = udst_;
+struct process_file  *pf;
+int bytes_read = 0;
 
-	return ret;
+  pf = lookup_fd(handle);
+  if(handle != 1 && pf == NULL)
+	return -1;
+	// if(size==0&&pf==0){
+	// 	fclose(pf);
+	// 	return 0;
+	// }
+
+  while (size >0)
+    {
+      /* How much to read into this page? */
+      size_t page_left = PGSIZE - pg_ofs (udst);
+      size_t read_amt = size < page_left ? size : page_left;
+      off_t retval;
+
+      /* Read from file into page. */
+      if (handle != 1) 
+        {
+          if (!page_lock (udst, true))
+            thread_exit ();
+          lock_acquire (&filesys_lock);
+          retval = file_read (pf->ptr, udst, read_amt);
+          lock_release (&filesys_lock);
+          page_unlock (udst);
+        }
+      else
+        {
+          size_t i;
+
+          for (i = 0; i < read_amt; i++)
+            {
+              char c = input_getc ();
+              if (!page_lock (udst, true))
+                thread_exit ();
+              udst[i] = c;
+              page_unlock (udst);
+            }
+          bytes_read = read_amt;
+        }
+
+      /* Check success. */
+      if (retval < 0)
+        {
+          if (bytes_read == 0)
+            bytes_read = -1;
+          break;
+        }
+      bytes_read += retval;
+      if (retval != (off_t) read_amt)
+        {
+          /* Short read, so we're done. */
+          break;
+        }
+      /* Advance. */
+      udst += retval;
+      size -= retval;
+    }
+	
+  return bytes_read;
+	// int ret;
+	// size_t page_left = PGSIZE - pg_ofs (udst);
+    // size_t read_amt = size < page_left ? size : page_left;
+    // off_t retval;
+	// if (!is_valid_addr(buffer))
+	// 	ret = -1;
+
+	// if (fd == 0)
+	// {
+	// 	int i;
+	// 	uint8_t *buffer = buffer;
+	// 	for (i = 0; i < size; i++)
+	// 		buffer[i] = input_getc();
+	// 	ret = size;
+	// }
+	// else
+	// {
+	// 	struct process_file *pf = search_fd(&thread_current()->opened_files, fd);
+	// 	if (pf == NULL)
+	// 		ret = -1;
+	// 	else
+	// 	{
+	// 		lock_acquire(&filesys_lock);
+	// 		ret = file_read(pf->ptr, buffer, size);
+	// 		lock_release(&filesys_lock);
+	// 	}
+	// }
+
+	// return ret;
 }
 
 int
 syscall_write(int size, void *buffer, int fd)
 {
+
 	int ret;
 
 	if (!is_valid_addr(buffer))
-		ret = -1;
-
+		return -1;
+		
 	if (fd == 1)
 	{
 		putbuf(buffer, size);
-		ret = size;
+		return size;
 	}
 	else
 	{
 		enum intr_level old_level = intr_disable();
 		struct process_file *pf = search_fd(&thread_current()->opened_files, fd);
 		intr_set_level (old_level);
-
-		if (pf == NULL)
+		lock_acquire(&filesys_lock);
+		if (pf == NULL){
 			ret = -1;
-		else
-		{
-			lock_acquire(&filesys_lock);
-			ret = file_write(pf->ptr, buffer, size);
 			lock_release(&filesys_lock);
 		}
+		else
+		{
+			ret = file_write(pf->ptr, buffer, size);
+		lock_release(&filesys_lock);
+		}
 	}
-
 	return ret;
 }
 
@@ -475,6 +600,8 @@ unmap1 (struct mapping *m)
 
 static int 
 syscall_mmap(int fd,void * addr){
+	// printf("fd : %d\n",fd);
+	// printf("add : %x\n",addr);
 	struct process_file *pf = search_fd(&thread_current()->opened_files,fd);
 	struct mapping *m = malloc(sizeof *m);
 	size_t offset;
@@ -483,23 +610,24 @@ syscall_mmap(int fd,void * addr){
 	if(m == NULL || addr == NULL || pg_ofs(addr) != 0){
 		return -1;
 	}
-
+	//printf("fd : %d\n",pf->fd);
 	m->handle = thread_current()->fd_count ++;
 	lock_acquire(&filesys_lock);
-	m->file = filesys_open(pf->ptr);
-
+	m->file = file_reopen(pf->ptr);
 	lock_release(&filesys_lock);
 	if(m->file == NULL){
+		// printf("add : %x\n",addr);
 		free(m);
 		return -1;
 	}
 	m->base = addr;
 	m->page_cnt = 0;
+	// printf("add : %x\n",addr);
 	list_push_front(&thread_current ()->mappings, &m->elem);
-
 	offset = 0;
 	lock_acquire(&filesys_lock);
 	length = file_length(m->file);
+	// printf("%d\n",length);
 	lock_release(&filesys_lock);
 
 	while(length > 0){

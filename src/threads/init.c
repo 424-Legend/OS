@@ -287,6 +287,7 @@ run_task (char **argv)
   
   printf ("Executing '%s':\n", task);
 #ifdef USERPROG
+  // printf("1\n");
   process_wait (process_execute (task));
 #else
   run_test (task);
@@ -337,9 +338,9 @@ run_actions (char **argv)
       for (i = 1; i < a->argc; i++)
         if (argv[i] == NULL)
           PANIC ("action `%s' requires %d argument(s)", *argv, a->argc - 1);
-
       /* Invoke action and advance. */
       a->function (argv);
+      // printf("%s\n",a->name);
       argv += a->argc;
     }
   

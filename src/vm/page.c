@@ -203,6 +203,7 @@ page_allocate (void *vaddr, bool read_only)
   struct page *p = malloc (sizeof *p);
   if (p != NULL)
     {
+
       p->addr = pg_round_down (vaddr);
 
       p->read_only = read_only;
@@ -217,7 +218,6 @@ page_allocate (void *vaddr, bool read_only)
       p->file_bytes = 0;
 
       p->thread = thread_current ();
-
       if (hash_insert (t->pages, &p->hash_elem) != NULL)
         {
           /* Already mapped. */

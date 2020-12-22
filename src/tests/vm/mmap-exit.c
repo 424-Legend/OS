@@ -16,7 +16,7 @@ test_main (void)
   CHECK ((child = exec ("child-mm-wrt")) != -1, "exec \"child-mm-wrt\"");
   CHECK (wait (child) == 0, "wait for child (should return 0)");
   quiet = false;
-
+ 
   /* Check file contents. */
   check_file ("sample.txt", sample, sizeof sample);
 }

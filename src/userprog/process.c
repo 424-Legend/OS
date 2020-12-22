@@ -62,7 +62,6 @@ process_execute (const char *file_name) //文件名加参数
     sema_down(&current_thread->sema_of_load);   // 等待新线程加载完毕
     if (!current_thread->child_process_load_successfully)  // 如果加载失败，返回-1
       return -1;   
-
   }
   return tid;
 }
@@ -75,14 +74,12 @@ start_process (void *file_name_)    // file_name_ 为文件名加参数（未分
   char *file_name = file_name_;
   struct intr_frame if_;
   bool success;
-
   /* Initialize interrupt frame and load executable. */
   memset (&if_, 0, sizeof if_);
   if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
   success = load (file_name, &if_.eip, &if_.esp);
-
   /* If load failed, quit. */
   palloc_free_page (file_name);
 
@@ -121,6 +118,7 @@ start_process (void *file_name_)    // file_name_ 为文件名加参数（未分
 int
 process_wait (tid_t child_tid UNUSED)
 {
+  // printf("wait\n")
   struct thread *current_thread = thread_current ();
 
   enum intr_level old_level = intr_disable();
@@ -181,7 +179,7 @@ process_exit (void)
   lock_release(&filesys_lock);
   // intr_set_level(old_level);
   // printf("closed all\n");
-
+    page_exit();
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
   pd = current_thread->pagedir;
@@ -298,7 +296,6 @@ load (const char *file_name, void (**eip) (void), void **esp)
   off_t file_ofs;
   bool success = false;
   int i;
-
   lock_acquire(&filesys_lock);
   /* Allocate and activate page directory. */
   current_thread->pagedir = pagedir_create ();
@@ -306,10 +303,9 @@ load (const char *file_name, void (**eip) (void), void **esp)
     goto done;
   process_activate ();
 
-
   /* Create page hash table. */
   current_thread->pages = malloc (sizeof *current_thread->pages);
-  if (current_thread->pages == NULL)
+    if (current_thread->pages == NULL)
     goto done;
   hash_init (current_thread->pages, page_hash, page_less, NULL);
 
@@ -324,20 +320,18 @@ load (const char *file_name, void (**eip) (void), void **esp)
   file = filesys_open(fn_cp);
 
   free(fn_cp);
-
   if (file == NULL)
   {
     printf ("load: %s: open failed\n", file_name);
     goto done;
   }
-
+ 
   /* Read and verify executable header. */
   if (file_read (file, &ehdr, sizeof ehdr) != sizeof ehdr|| memcmp (ehdr.e_ident, "\177ELF\1\1\1", 7) || ehdr.e_type != 2 || ehdr.e_machine != 3 || ehdr.e_version != 1 || ehdr.e_phentsize != sizeof(struct Elf32_Phdr) || ehdr.e_phnum > 1024)
   {
     printf ("load: %s: error loading executable\n", file_name);
     goto done;
   }
-
   /* Read program headers. */
   file_ofs = ehdr.e_phoff;
   for (i = 0; i < ehdr.e_phnum; i++)
@@ -347,7 +341,6 @@ load (const char *file_name, void (**eip) (void), void **esp)
     if (file_ofs < 0 || file_ofs > file_length (file))
       goto done;
     file_seek (file, file_ofs);
-
     if (file_read (file, &phdr, sizeof phdr) != sizeof phdr)
       goto done;
     file_ofs += sizeof phdr;
@@ -387,27 +380,26 @@ load (const char *file_name, void (**eip) (void), void **esp)
           read_bytes = 0;
           zero_bytes = ROUND_UP (page_offset + phdr.p_memsz, PGSIZE);
         }
-        if (!load_segment (file, file_page, (void *) mem_page,
-                          read_bytes, zero_bytes, writable))
+        bool result = load_segment (file, file_page, (void *) mem_page,
+                          read_bytes, zero_bytes, writable);
+                          // printf("%d\n",!result);
+        if (!result){
           goto done;
+        }
       }
       else
         goto done;
       break;
     }
   }
-
   /* Set up stack. */
   if (!setup_stack (esp, file_name))
     goto done;
-
   /* Start address. */
   *eip = (void (*) (void)) ehdr.e_entry;
 
   success = true;
-
   file_deny_write(file);
-
   thread_current()->self = file; // 存储自身的可执行文件
 
 done:
@@ -487,133 +479,206 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
   ASSERT ((read_bytes + zero_bytes) % PGSIZE == 0);
   ASSERT (pg_ofs (upage) == 0);
   ASSERT (ofs % PGSIZE == 0);
-
+  // printf("seg\n");
   file_seek (file, ofs);
   while (read_bytes > 0 || zero_bytes > 0)
     {
       /* Calculate how to fill this page.
-         We will read PAGE_READ_BYTES bytes from FILE
+         We will read PAGE_READ_BYT   ES bytes from FILE
          and zero the final PAGE_ZERO_BYTES bytes. */
       size_t page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
       size_t page_zero_bytes = PGSIZE - page_read_bytes;
 
+      // printf("seg\n");
       /* Get a page of memory. */
-      uint8_t *kpage = palloc_get_page (PAL_USER);
-      if (kpage == NULL)
+      // printf("6\n");
+      struct page *p = page_allocate (upage,!writable);
+      if (p == NULL){
         return false;
-
-      /* Load this page. */
-      if (file_read (file, kpage, page_read_bytes) != (int) page_read_bytes)
+      }
+      if (page_read_bytes > 0) 
         {
-          palloc_free_page (kpage);
-          return false;
+          p->file = file;
+          p->file_offset = ofs;
+          p->file_bytes = page_read_bytes;
         }
-      memset (kpage + page_read_bytes, 0, page_zero_bytes);
-
-      /* Add the page to the process's address space. */
-      if (!install_page (upage, kpage, writable))
-        {
-          palloc_free_page (kpage);
-          return false;
-        }
-
-      /* Advance. */
       read_bytes -= page_read_bytes;
       zero_bytes -= page_zero_bytes;
-      upage += PGSIZE;
+      ofs += page_read_bytes;
+      upage += PGSIZE; 
+    } 
+  return true;
+} 
+static void
+reverse (int argc, char **argv) 
+{
+  for (; argc > 1; argc -= 2, argv++) 
+    {
+      char *tmp = argv[0];
+      argv[0] = argv[argc - 1];
+      argv[argc - 1] = tmp;
     }
+}
+static void *
+push (uint8_t *kpage, size_t *ofs, const void *buf, size_t size) 
+{
+  size_t padsize = ROUND_UP (size, sizeof (uint32_t));
+  if (*ofs < padsize)
+    return NULL;
+
+  *ofs -= padsize;
+  memcpy (kpage + *ofs + (padsize - size), buf, size);
+  return kpage + *ofs + (padsize - size);
+}
+static bool
+init_cmd_line (uint8_t *kpage, uint8_t *upage, const char *cmd_line,
+               void **esp) 
+{
+  size_t ofs = PGSIZE;
+  char *const null = NULL;
+  char *cmd_line_copy;
+  char *karg, *saveptr;
+  int argc;
+  char **argv;
+
+  /* Push command line string. */
+  cmd_line_copy = push (kpage, &ofs, cmd_line, strlen (cmd_line) + 1);
+  if (cmd_line_copy == NULL)
+    return false;
+
+  if (push (kpage, &ofs, &null, sizeof null) == NULL)
+    return false;
+
+  /* Parse command line into arguments
+     and push them in reverse order. */
+  argc = 0;
+  for (karg = strtok_r (cmd_line_copy, " ", &saveptr); karg != NULL;
+       karg = strtok_r (NULL, " ", &saveptr))
+    {
+      void *uarg = upage + (karg - (char *) kpage);
+      if (push (kpage, &ofs, &uarg, sizeof uarg) == NULL)
+        return false;
+      argc++;
+    }
+
+  /* Reverse the order of the command line arguments. */
+  argv = (char **) (upage + ofs);
+  reverse (argc, (char **) (kpage + ofs));
+
+  /* Push argv, argc, "return address". */
+  if (push (kpage, &ofs, &argv, sizeof argv) == NULL
+      || push (kpage, &ofs, &argc, sizeof argc) == NULL
+      || push (kpage, &ofs, &null, sizeof null) == NULL)
+    return false;
+
+  /* Set initial stack pointer. */
+  *esp = upage + ofs;
   return true;
 }
-
 /* Create a minimal stack by mapping a zeroed page at the top of
    user virtual memory. */
 static bool
 setup_stack (void **esp, char * file_name) //栈顶指针，文件名加参数（未分割）
 {
-  uint8_t *kpage;
-  bool success = false;
+//   uint8_t *kpage;
+//   bool success = false;
+//   kpage = palloc_get_page (PAL_USER | PAL_ZERO);
+//   if (kpage != NULL)
+//     {
+//       success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
+//       if (success)
+//         *esp = PHYS_BASE;
+//       else
+//         palloc_free_page (kpage);
+//     }
 
-  kpage = palloc_get_page (PAL_USER | PAL_ZERO);
-  if (kpage != NULL)
-    {
-      success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
-      if (success)
-        *esp = PHYS_BASE;
-      else
-        palloc_free_page (kpage);
-    }
+//   char *token, *next_split_ptr;
 
-  char *token, *next_split_ptr;
-
-  char *filename_cp = malloc(strlen(file_name)+1);
-  strlcpy (filename_cp, file_name, strlen(file_name)+1);
+//   char *filename_cp = malloc(strlen(file_name)+1);
+//   strlcpy (filename_cp, file_name, strlen(file_name)+1);
 
 
-  // 计算 argc
-  enum intr_level old_level = intr_disable();
-  int argc=1;
-  bool lastchar_is_space=false;  // 字符串最后一个字符是不是空格
-  for(int j=0;j!=strlen(file_name); j++){
-    if(file_name[j] == ' '){
-      if(!lastchar_is_space)
-        argc++;
-      lastchar_is_space=true;
-    }
-    else
-      lastchar_is_space=false;
-  }
-  intr_set_level (old_level);
+//   // 计算 argc
+//   enum intr_level old_level = intr_disable();
+//   int argc=1;
+//   bool lastchar_is_space=false;  // 字符串最后一个字符是不是空格
+//   for(int j=0;j!=strlen(file_name); j++){
+//     if(file_name[j] == ' '){
+//       if(!lastchar_is_space)
+//         argc++;
+//       lastchar_is_space=true;
+//     }
+//     else
+//       lastchar_is_space=false;
+//   }
+//   intr_set_level (old_level);
 
     
-  int *argv = calloc(argc,sizeof(int));
+//   int *argv = calloc(argc,sizeof(int));
 
-  int i;
-  token = strtok_r (file_name, " ", &next_split_ptr);
-  for (i=0;i<argc; i++){
-    if (token)
+//   int i;
+//   token = strtok_r (file_name, " ", &next_split_ptr);
+//   for (i=0;i<argc; i++){
+//     if (token)
+//     {
+//       *esp -= strlen(token) + 1;
+//       memcpy(*esp,token,strlen(token));
+//       argv[i]=*esp;
+// //printf("i::%d,%s,%x\n",i,argv[i],next_split_ptr);
+//       token = strtok_r (NULL, " ", &next_split_ptr);
+//     }
+//     else{
+//       argc--;
+//     }
+//   }
+
+//   // 对齐
+//   *esp -= ((unsigned)*esp % WORD_SIZE);
+
+//   //null ptr sentinel: null at argv[argc]
+//    *esp-=sizeof(int);
+
+//   //push address
+//   for(i=argc-1;i>=0;i--)
+//   {
+//     *esp-=sizeof(int);
+//     memcpy(*esp,&argv[i],sizeof(int));
+//   }
+
+//   //push argv address
+//   int tmp = *esp;
+//   *esp-=sizeof(int);
+//   memcpy(*esp,&tmp,sizeof(int));
+
+//   //push argc
+//   *esp-=sizeof(int);
+//   memcpy(*esp,&argc,sizeof(int));
+
+//   //return address
+//   *esp-=sizeof(int);
+//   memcpy(*esp,&argv[argc],sizeof(int));
+// //printf("%x\n",*esp);
+//   free(filename_cp);
+//   free(argv);
+
+//   return success;
+ struct page *page = page_allocate (((uint8_t *) PHYS_BASE) - PGSIZE, false);
+  if (page != NULL) 
     {
-      *esp -= strlen(token) + 1;
-      memcpy(*esp,token,strlen(token));
-      argv[i]=*esp;
-//printf("i::%d,%s,%x\n",i,argv[i],next_split_ptr);
-      token = strtok_r (NULL, " ", &next_split_ptr);
+      page->frame = frame_alloc_and_lock (page);
+      if (page->frame != NULL)
+        {
+          bool ok;
+          page->read_only = false;
+          page->private = false;
+          ok = init_cmd_line (page->frame->base, page->addr, file_name, esp);
+          frame_unlock (page->frame);
+          return ok;
+        }
     }
-    else{
-      argc--;
-    }
-  }
-
-  // 对齐
-  *esp -= ((unsigned)*esp % WORD_SIZE);
-
-  //null ptr sentinel: null at argv[argc]
-   *esp-=sizeof(int);
-
-  //push address
-  for(i=argc-1;i>=0;i--)
-  {
-    *esp-=sizeof(int);
-    memcpy(*esp,&argv[i],sizeof(int));
-  }
-
-  //push argv address
-  int tmp = *esp;
-  *esp-=sizeof(int);
-  memcpy(*esp,&tmp,sizeof(int));
-
-  //push argc
-  *esp-=sizeof(int);
-  memcpy(*esp,&argc,sizeof(int));
-
-  //return address
-  *esp-=sizeof(int);
-  memcpy(*esp,&argv[argc],sizeof(int));
-//printf("%x\n",*esp);
-  free(filename_cp);
-  free(argv);
-
-  return success;
+  return false;
 }
+
 
 /* Adds a mapping from user virtual address UPAGE to kernel
    virtual address KPAGE to the page table.

@@ -6,6 +6,7 @@
 #include <stdint.h>
 #include <kernel/list.h>
 #include <threads/synch.h>
+#include <hash.h>
 
 /* States in a thread's life cycle. */
 enum thread_status
@@ -103,20 +104,18 @@ struct thread
     struct list list_of_children_processes;  // 维护一个子程序列表
     int exit_status;    // 退出码
     struct thread* parent;   
-    struct file *self;  // 自身的可执行文件
-    struct list opened_files;     // 所有已经打开的文件
-    int fd_count;
     //struct semaphore child_lock;
     struct child_process * waiting_child;  // 它正在等待的子进程的pid
 
-    struct hash *pages;
-    int64_t user_esp;
-    struct list mappings;
-
-#ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
-#endif
+    struct hash *pages;
+    struct file *self;  // 自身的可执行文件
+
+   struct list opened_files;     // 所有已经打开的文件
+   struct list mappings;
+   int fd_count;
+   void *user_esp;
 
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */

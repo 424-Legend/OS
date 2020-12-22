@@ -215,7 +215,7 @@ fsutil_append (char **argv)
      them, though, in case we have more files to append. */
   memset (buffer, 0, BLOCK_SECTOR_SIZE);
   block_write (dst, sector, buffer);
-  block_write (dst, sector + 1, buffer);
+  block_write (dst, sector, buffer + 1);
 
   /* Finish up. */
   file_close (src);

@@ -57,10 +57,14 @@ memcmp (const void *a_, const void *b_, size_t size)
 
   ASSERT (a != NULL || size == 0);
   ASSERT (b != NULL || size == 0);
-
-  for (; size-- > 0; a++, b++)
-    if (*a != *b)
+  for (; size-- > 0; a++, b++ )
+    if (*a != *b){
+      // printf("a : %x b : %x\n",*a,*b);
       return *a > *b ? +1 : -1;
+    }
+    // else{
+    //   printf("a : %x b : %x\n",*a,*b);
+    // }
   return 0;
 }
 

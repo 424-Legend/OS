@@ -189,21 +189,17 @@ thread_create (const char *name, int priority,
   t = palloc_get_page (PAL_ZERO);
   if (t == NULL)
     return TID_ERROR;
-
+  
   /* Initialize thread. */
   init_thread (t, name, priority);
   tid = t->tid = allocate_tid ();
   
-#ifdef USERPROG
   struct child_process* child = malloc(sizeof(*child));
   child->tid = tid;
   child->exit_status = t->exit_status;
   child->if_waited = false;
   sema_init (&(child->wait_sema), 0);
   list_push_back (&running_thread()->list_of_children_processes, &child->child_elem);
-#endif
-  
-
   old_level = intr_disable ();
 
   /* Stack frame for kernel_thread(). */
@@ -226,6 +222,7 @@ thread_create (const char *name, int priority,
   /* Add to run queue. */
   thread_unblock (t);
 
+  // printf("3\n");
   return tid;
 }
 
@@ -495,7 +492,6 @@ init_thread (struct thread *t, const char *name, int priority)
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
   t->magic = THREAD_MAGIC;
-#ifdef USERPROG
   list_init (&t->list_of_children_processes);
   t->parent = running_thread();
   list_init (&t->opened_files);
@@ -504,8 +500,9 @@ init_thread (struct thread *t, const char *name, int priority)
   sema_init(&t->sema_of_load,0);
   t->waiting_child=NULL;
   t->self=NULL;
-#endif
-  
+  t->pagedir = NULL;
+  t->pages = NULL;
+  list_init (&t->mappings);
   list_push_back (&all_list, &t->allelem);
 }
 
