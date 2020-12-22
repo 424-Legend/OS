@@ -109,6 +109,10 @@ struct thread
     //struct semaphore child_lock;
     struct child_process * waiting_child;  // 它正在等待的子进程的pid
 
+    struct hash *pages;
+    int64_t user_esp;
+    struct list mappings;
+
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */

@@ -5,6 +5,8 @@
 #include "userprog/syscall.h"
 #include "threads/interrupt.h"
 #include "threads/thread.h"
+#include "vm/page.h"
+// #include "vm/page.c"
 
 /* Number of page faults processed. */
 static long long page_fault_cnt;
@@ -155,6 +157,13 @@ page_fault (struct intr_frame *f)
 
   if (lock_held_by_current_thread(&filesys_lock))
     lock_release(&filesys_lock);
+
+   if (user && not_present)
+   {
+   if (!page_in (fault_addr))
+      thread_exit ();
+   return;
+   }
 
   /* To implement virtual memory, delete the rest of the function
      body, and replace it with code that brings in the page to

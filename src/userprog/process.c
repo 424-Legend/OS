@@ -18,7 +18,8 @@
 #include "threads/palloc.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
-
+#include "vm/page.h"
+#include "vm/frame.h"
 
 # define WORD_SIZE 4  // 压栈时保持对齐
 
@@ -304,6 +305,13 @@ load (const char *file_name, void (**eip) (void), void **esp)
   if (current_thread->pagedir == NULL)
     goto done;
   process_activate ();
+
+
+  /* Create page hash table. */
+  current_thread->pages = malloc (sizeof *current_thread->pages);
+  if (current_thread->pages == NULL)
+    goto done;
+  hash_init (current_thread->pages, page_hash, page_less, NULL);
 
   /* Open executable file. */
 

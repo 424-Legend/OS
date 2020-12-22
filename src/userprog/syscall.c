@@ -1,12 +1,20 @@
 #include "userprog/syscall.h"
 #include <stdio.h>
+#include <string.h>
 #include <syscall-nr.h>
 #include "userprog/process.h"
+#include "userprog/pagedir.h"
+#include "devices/input.h"
+#include "devices/shutdown.h"
+#include "filesys/directory.h"
+#include "filesys/filesys.h"
+#include "filesys/file.h"
 #include "threads/interrupt.h"
+#include "threads/malloc.h"
+#include "threads/palloc.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
-#include "filesys/off_t.h"
-#include "kernel/list.h"
+#include "vm/page.h"
 //#include "devices/shutdown.h"
 
 static void syscall_handler (struct intr_frame *);
@@ -30,7 +38,11 @@ void syscall_seek(int fd, int pos);
 int syscall_tell(int fd);
 void syscall_close(int fd);
 void syscall_halt(void);
-
+static void unmap(struct mapping *m);
+static int syscall_mmap(int fd,void * addr);
+static struct mapping * lookup_mapping (int handle);
+static int sys_munmap(int mapping); 
+static struct mapping * lookup_mapping (int handle);
 
 
 void pop_stack(int *esp, int *a, int offset){
@@ -138,11 +150,26 @@ syscall_handler (struct intr_frame *f UNUSED)
 			syscall_close(fd); 
 			break;
 		}
+		case SYS_MMAP : {
+			int fd;
+			int pos;
+			pop_stack(f->esp, &fd, 1);
+			pop_stack(f->esp, &pos, 2);
+			f->eax = syscall_mmap(fd,pos);
+			break; 
+		}
+		case SYS_MUNMAP : {
+			int fd; 
+			pop_stack(f->esp, &fd, 1);
+			f->eax = sys_munmap(fd);
+			break;
+		}
 
 		default:
 		printf("Default %d\n",*p);
 	}
 }
+
 
 int
 exec_process(char *file_name)
@@ -422,3 +449,100 @@ syscall_close(int fd)
 	lock_release(&filesys_lock);
 }
 
+/* Binds a mapping id to a region of memory and a file. */
+/* Remove mapping M from the virtual address space,
+   writing back any pages that have changed. */
+static void
+unmap1 (struct mapping *m)
+{
+/* add code here */
+  list_remove(&m->elem);
+  for(int i = 0; i < m->page_cnt; i++)
+  {
+    //Pages written by the process are written back to the file...
+    if (pagedir_is_dirty(thread_current()->pagedir, m->base + (PGSIZE * i)))
+    {
+      lock_acquire(&filesys_lock);
+      file_write_at(m->file, m->base + (PGSIZE * i), PGSIZE, (PGSIZE * i)); // Check 3rd parameter
+      lock_release(&filesys_lock);
+    }
+  }
+  for(int i = 0; i < m->page_cnt; i++)
+  {
+    page_deallocate(m->base + (PGSIZE * i));
+  }
+}
+
+static int 
+syscall_mmap(int fd,void * addr){
+	struct process_file *pf = search_fd(&thread_current()->opened_files,fd);
+	struct mapping *m = malloc(sizeof *m);
+	size_t offset;
+	off_t length;
+
+	if(m == NULL || addr == NULL || pg_ofs(addr) != 0){
+		return -1;
+	}
+
+	m->handle = thread_current()->fd_count ++;
+	lock_acquire(&filesys_lock);
+	m->file = filesys_open(pf->ptr);
+
+	lock_release(&filesys_lock);
+	if(m->file == NULL){
+		free(m);
+		return -1;
+	}
+	m->base = addr;
+	m->page_cnt = 0;
+	list_push_front(&thread_current ()->mappings, &m->elem);
+
+	offset = 0;
+	lock_acquire(&filesys_lock);
+	length = file_length(m->file);
+	lock_release(&filesys_lock);
+
+	while(length > 0){
+		struct page *p = page_allocate ((uint8_t *) addr + offset, false);
+      if (p == NULL)
+        {
+          unmap1 (m);
+          return -1;
+        }
+      p->private = false;
+      p->file = m->file;
+      p->file_offset = offset;
+      p->file_bytes = length >= PGSIZE ? PGSIZE : length;
+      offset += p->file_bytes;
+      length -= p->file_bytes;
+      m->page_cnt++;
+	}
+	return m->handle;
+}
+
+static struct mapping *
+lookup_mapping (int handle)
+{
+  struct thread *cur = thread_current ();
+  struct list_elem *e;
+
+  for (e = list_begin (&cur->mappings); e != list_end (&cur->mappings);
+       e = list_next (e))
+    {
+      struct mapping *m = list_entry (e, struct mapping, elem);
+      if (m->handle == handle)
+        return m;
+    }
+
+  thread_exit ();
+}
+
+
+/* Munmap system call. */
+static int
+sys_munmap (int mapping)
+{
+/* add code here */
+  unmap1(lookup_mapping(mapping));
+  return 0;
+}
