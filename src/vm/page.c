@@ -8,7 +8,7 @@
 #include "threads/thread.h"
 #include "userprog/pagedir.h"
 #include "threads/vaddr.h"
-
+ 
 /* Maximum size of process stack, in bytes. */
 #define STACK_MAX (1024 * 1024)
 

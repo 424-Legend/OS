@@ -197,6 +197,46 @@ exec_process(char *file_name)
 	}
 	return tid;
 }
+static void
+unmap (struct mapping *m)
+{
+/* add code here */
+  list_remove(&m->elem);
+  for(int i = 0; i < m->page_cnt; i++)
+  {
+    //Pages written by the process are written back to the file...
+    if (pagedir_is_dirty(thread_current()->pagedir, m->base + (PGSIZE * i)))
+    {
+      lock_acquire(&filesys_lock);
+      file_write_at(m->file, m->base + (PGSIZE * i), PGSIZE, (PGSIZE * i)); // Check 3rd parameter
+      lock_release(&filesys_lock);
+    }
+  }
+  for(int i = 0; i < m->page_cnt; i++)
+  {
+    page_deallocate(m->base + (PGSIZE * i));
+  }
+}
+static void
+unmap1 (struct mapping *m)
+{
+/* add code here */
+  list_remove(&m->elem);
+  for(int i = 0; i < m->page_cnt; i++)
+  {
+    //Pages written by the process are written back to the file...
+    if (pagedir_is_dirty(thread_current()->pagedir, m->base + (PGSIZE * i)))
+    {
+      lock_acquire(&filesys_lock);
+      file_write_at(m->file, m->base + (PGSIZE * i), PGSIZE, (PGSIZE * i)); // Check 3rd parameter
+      lock_release(&filesys_lock);
+    }
+  }
+  for(int i = 0; i < m->page_cnt; i++)
+  {
+    page_deallocate(m->base + (PGSIZE * i));
+  }
+}
 
 void
 exit_process(int status)
@@ -204,7 +244,7 @@ exit_process(int status)
 	struct child_process *cp;
 	struct thread *cur_thread = thread_current();
 
-	enum intr_level old_level = intr_disable();
+
 	for (struct list_elem *e = list_begin(&cur_thread->parent->list_of_children_processes); e != list_end(&cur_thread->parent->list_of_children_processes); e = list_next(e))
 	{
 		cp = list_entry(e, struct child_process, child_elem);
@@ -215,8 +255,13 @@ exit_process(int status)
 			cp->exit_status = status;
 		}
 	}
+	for (struct list_elem *e = list_begin (&cur_thread->mappings); e != list_end (&cur_thread->mappings);e = list_next(e))
+    {
+      struct mapping *m = list_entry (e, struct mapping, elem);
+      unmap1 (m);
+    }
 	cur_thread->exit_status = status;
-	intr_set_level(old_level);
+
 
 	thread_exit();
 }
@@ -577,26 +622,6 @@ syscall_close(int fd)
 /* Binds a mapping id to a region of memory and a file. */
 /* Remove mapping M from the virtual address space,
    writing back any pages that have changed. */
-static void
-unmap1 (struct mapping *m)
-{
-/* add code here */
-  list_remove(&m->elem);
-  for(int i = 0; i < m->page_cnt; i++)
-  {
-    //Pages written by the process are written back to the file...
-    if (pagedir_is_dirty(thread_current()->pagedir, m->base + (PGSIZE * i)))
-    {
-      lock_acquire(&filesys_lock);
-      file_write_at(m->file, m->base + (PGSIZE * i), PGSIZE, (PGSIZE * i)); // Check 3rd parameter
-      lock_release(&filesys_lock);
-    }
-  }
-  for(int i = 0; i < m->page_cnt; i++)
-  {
-    page_deallocate(m->base + (PGSIZE * i));
-  }
-}
 
 static int 
 syscall_mmap(int fd,void * addr){
